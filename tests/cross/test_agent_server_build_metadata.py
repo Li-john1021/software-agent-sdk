@@ -113,6 +113,36 @@ def test_agent_server_binary_copies_openhands_distribution_metadata() -> None:
         assert f'*copy_metadata("{distribution}")' in spec_text
 
 
+def test_agent_server_binary_collects_plugin_format_schemas() -> None:
+    """Frozen agent-server must ship plugin/MCP JSON schemas next to the module.
+
+    ``openhands.sdk.plugin.format.base._load_schema`` reads
+    ``schemas/*.json`` via ``Path(__file__).parent / "schemas"``. The schemas
+    are in the SDK wheel, but PyInstaller only packs what ``agent-server.spec``
+    explicitly ``collect_data_files`` — without this line the onefile binary
+    raises FileNotFoundError for ``plugin-1.0.0.schema.json`` at
+    SETTING_UP_SKILLS (OpenHands/OpenHands#18418).
+    """
+    spec_text = AGENT_SERVER_SPEC.read_text(encoding="utf-8")
+
+    assert (
+        '*collect_data_files("openhands.sdk.plugin.format", '
+        'includes=["schemas/*.json"])'
+    ) in spec_text
+
+    schemas_dir = (
+        REPO_ROOT
+        / "openhands-sdk"
+        / "openhands"
+        / "sdk"
+        / "plugin"
+        / "format"
+        / "schemas"
+    )
+    assert (schemas_dir / "plugin-1.0.0.schema.json").is_file()
+    assert (schemas_dir / "mcp-1.0.0.schema.json").is_file()
+
+
 def test_python_image_uses_canonical_minimal_runtime() -> None:
     dockerfile_text = AGENT_SERVER_DOCKERFILE.read_text(encoding="utf-8")
     workflow_text = SERVER_WORKFLOW.read_text(encoding="utf-8")

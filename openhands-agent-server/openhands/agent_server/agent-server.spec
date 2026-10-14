@@ -130,6 +130,12 @@ a = Analysis(
         *collect_data_files("openhands.sdk.context.condenser", includes=["prompts/*.j2"]),
         *collect_data_files("openhands.sdk.context.prompts", includes=["templates/*.j2"]),
 
+        # Plugin / MCP format schemas loaded at SETTING_UP_SKILLS (Path next to
+        # the module). Missing from the onefile binary causes FileNotFoundError
+        # for plugin-1.0.0.schema.json in frozen agent-server images.
+        # See OpenHands/OpenHands#18418.
+        *collect_data_files("openhands.sdk.plugin.format", includes=["schemas/*.json"]),
+
         # OpenHands Tools templates
         *collect_data_files("openhands.tools.delegate", includes=["templates/*.j2"]),
 
