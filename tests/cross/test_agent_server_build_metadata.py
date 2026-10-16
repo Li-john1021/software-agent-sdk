@@ -31,13 +31,7 @@ AGENT_SERVER_SPEC = (
 )
 MANIFEST_IN = REPO_ROOT / "MANIFEST.in"
 PLUGIN_FORMAT_SCHEMAS_DIR = (
-    REPO_ROOT
-    / "openhands-sdk"
-    / "openhands"
-    / "sdk"
-    / "plugin"
-    / "format"
-    / "schemas"
+    REPO_ROOT / "openhands-sdk" / "openhands" / "sdk" / "plugin" / "format" / "schemas"
 )
 ACP_INSTALL_CATALOG_PY = (
     REPO_ROOT
