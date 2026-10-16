@@ -126,7 +126,6 @@ a = Analysis(
         *collect_data_files("binaryornot"),
 
         # OpenHands SDK prompt templates (adjusted for shallow namespace layout)
-        *collect_data_files("openhands.sdk.agent", includes=["prompts/*.j2"]),
         *collect_data_files("openhands.sdk.context.condenser", includes=["prompts/*.j2"]),
         *collect_data_files("openhands.sdk.context.prompts", includes=["templates/*.j2"]),
 

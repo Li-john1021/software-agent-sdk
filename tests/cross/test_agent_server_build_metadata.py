@@ -1,5 +1,10 @@
+import ast
 import re
+from importlib.resources import files
 from pathlib import Path
+from typing import Any
+
+from PyInstaller.utils.hooks import collect_data_files
 
 from openhands.sdk.settings.acp_install_catalog import (
     ACP_INSTALL_CATALOG,
@@ -123,24 +128,38 @@ def test_agent_server_binary_collects_plugin_format_schemas() -> None:
     raises FileNotFoundError for ``plugin-1.0.0.schema.json`` at
     SETTING_UP_SKILLS (OpenHands/OpenHands#18418).
     """
-    spec_text = AGENT_SERVER_SPEC.read_text(encoding="utf-8")
+    package = "openhands.sdk.plugin.format"
+    schemas = list(files(package).joinpath("schemas").iterdir())
+    assert schemas
 
-    assert (
-        '*collect_data_files("openhands.sdk.plugin.format", '
-        'includes=["schemas/*.json"])'
-    ) in spec_text
+    bundled = _spec_collected_datas(package)
+    dest = f"{package.replace('.', '/')}/schemas"
+    for schema in schemas:
+        assert (schema.name, dest) in bundled
 
-    schemas_dir = (
-        REPO_ROOT
-        / "openhands-sdk"
-        / "openhands"
-        / "sdk"
-        / "plugin"
-        / "format"
-        / "schemas"
-    )
-    assert (schemas_dir / "plugin-1.0.0.schema.json").is_file()
-    assert (schemas_dir / "mcp-1.0.0.schema.json").is_file()
+
+def _spec_collected_datas(package: str) -> set[tuple[str, str]]:
+    """Resolve the spec's ``collect_data_files(package, ...)`` calls as
+    PyInstaller would, returning ``(file name, bundle dir)`` pairs."""
+    tree = ast.parse(AGENT_SERVER_SPEC.read_text(encoding="utf-8"))
+    bundled: set[tuple[str, str]] = set()
+    for node in ast.walk(tree):
+        if not (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "collect_data_files"
+            and node.args
+            and isinstance(node.args[0], ast.Constant)
+            and node.args[0].value == package
+        ):
+            continue
+        kwargs: dict[str, Any] = {}
+        for kw in node.keywords:
+            assert kw.arg is not None
+            kwargs[kw.arg] = ast.literal_eval(kw.value)
+        for src, dst in collect_data_files(package, **kwargs):
+            bundled.add((Path(src).name, dst))
+    return bundled
 
 
 def test_python_image_uses_canonical_minimal_runtime() -> None:
