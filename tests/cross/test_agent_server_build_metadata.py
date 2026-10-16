@@ -29,6 +29,16 @@ AGENT_SERVER_SPEC = (
     / "agent_server"
     / "agent-server.spec"
 )
+MANIFEST_IN = REPO_ROOT / "MANIFEST.in"
+PLUGIN_FORMAT_SCHEMAS_DIR = (
+    REPO_ROOT
+    / "openhands-sdk"
+    / "openhands"
+    / "sdk"
+    / "plugin"
+    / "format"
+    / "schemas"
+)
 ACP_INSTALL_CATALOG_PY = (
     REPO_ROOT
     / "openhands-sdk"
@@ -123,19 +133,30 @@ def test_agent_server_binary_collects_plugin_format_schemas() -> None:
 
     ``openhands.sdk.plugin.format.base._load_schema`` reads
     ``schemas/*.json`` via ``Path(__file__).parent / "schemas"``. The schemas
-    are in the SDK wheel, but PyInstaller only packs what ``agent-server.spec``
-    explicitly ``collect_data_files`` — without this line the onefile binary
-    raises FileNotFoundError for ``plugin-1.0.0.schema.json`` at
-    SETTING_UP_SKILLS (OpenHands/OpenHands#18418).
+    are in the SDK wheel, but the published ``*-python`` image builds from an
+    sdist governed by ``MANIFEST.in``, then PyInstaller only packs what
+    ``agent-server.spec`` explicitly ``collect_data_files``. Both layers are
+    required — without either, the onefile binary raises FileNotFoundError for
+    ``plugin-1.0.0.schema.json`` at SETTING_UP_SKILLS
+    (OpenHands/OpenHands#18418 / software-agent-sdk#5989).
     """
     package = "openhands.sdk.plugin.format"
+    schema_names = sorted(p.name for p in PLUGIN_FORMAT_SCHEMAS_DIR.glob("*.json"))
+    assert schema_names == ["mcp-1.0.0.schema.json", "plugin-1.0.0.schema.json"]
+
+    # Build context for ghcr.io/openhands/agent-server:*-python comes from the
+    # workspace sdist (see docker/build.py::_make_build_context). MANIFEST.in
+    # must include the schemas or collect_data_files matches nothing in-image.
+    manifest_text = MANIFEST_IN.read_text(encoding="utf-8")
+    assert "recursive-include openhands-sdk schemas/*.json" in manifest_text
+
     schemas = list(files(package).joinpath("schemas").iterdir())
-    assert schemas
+    assert {schema.name for schema in schemas} == set(schema_names)
 
     bundled = _spec_collected_datas(package)
     dest = f"{package.replace('.', '/')}/schemas"
-    for schema in schemas:
-        assert (schema.name, dest) in bundled
+    for name in schema_names:
+        assert (name, dest) in bundled
 
 
 def _spec_collected_datas(package: str) -> set[tuple[str, str]]:
